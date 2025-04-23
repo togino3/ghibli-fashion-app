@@ -3,55 +3,98 @@ from openai import OpenAI
 from PIL import Image
 import requests
 from io import BytesIO
+import json
+import os
+from datetime import datetime
+import uuid
 
-# OpenAI API Key
-device_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# Initialize OpenAI client
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# ページタイトル
-st.set_page_config(page_title="🌟 AIアバターファッションポータル", layout="wide")
-st.title("AIアバターファッションポータル")
-st.markdown("Webに写真を送り、情報を入力してジブリ風ファッションを生成しましょう")
+# Setup Streamlit page
+st.set_page_config(page_title="🌟 Ghibli Fashion Portal", layout="wide")
+st.title("🌟 AIアバターファッションポータル")
 
-# ユーザー入力
-with st.form("user_input_form"):
-    col1, col2 = st.columns(2)
-    with col1:
-        uploaded_image = st.file_uploader("自分の写真をアップロード", type=["jpg", "jpeg", "png"])
-        gender = st.selectbox("性別", ["男", "女", "その他"])
-        age = st.slider("年齢", 10, 80, 25)
-        height = st.number_input("身長(cm)", min_value=100, max_value=250, value=170)
-        weight = st.number_input("体重(kg)", min_value=30, max_value=150, value=60)
-    with col2:
-        body_shape = st.selectbox("体型", ["スリム", "マッチョ", "ガッチリ"])
-        concept = st.text_input("好きなファッションコンセプ (例: 夏系, 明るい系, ストリート系)")
-        submitted = st.form_submit_button("ジブリ風コーディネート生成")
+# JSON data file for saving favorites
+DATA_FILE = "favorites.json"
+if not os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "w") as f:
+        json.dump([], f)
 
-# ジブリ風衣装の生成
-if submitted and uploaded_image:
-    prompt = f"Generate a Studio Ghibli style fashion outfit for a {age}-year-old {gender} with a {body_shape} body shape, height {height}cm and weight {weight}kg. The concept is: {concept}. Output should be poetic and artistic."
+def save_favorite(entry):
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
+    data.append(entry)
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
-    with st.spinner("生成中... 待ちください"):
-        response = device_client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            n=1
-        )
-        image_url = response.data[0].url
-        image_response = requests.get(image_url)
-        ghibli_image = Image.open(BytesIO(image_response.content))
+def load_favorites():
+    with open(DATA_FILE, "r") as f:
+        return json.load(f)
 
-    st.image(ghibli_image, caption="生成されたジブリ風ファッション", use_column_width=True)
+# Tabs for functionality
+tabs = st.tabs(["生成", "ポータル"])
 
-    # 商品一覧
-    st.markdown("### このファッションに合う商品")
-    example_products = [
-        {"name": "ストローハット Tシャツ", "url": "https://example.com/product/1"},
-        {"name": "リネンコスカート", "url": "https://example.com/product/2"},
-        {"name": "ギャザーサンダル", "url": "https://example.com/product/3"}
-    ]
+# --- Tab 1: Generate Ghibli-style Fashion ---
+with tabs[0]:
+    st.subheader("📷 写真と情報をもとにファッションを生成")
+    with st.form("user_input_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            uploaded_image = st.file_uploader("自分の写真をアップロード", type=["jpg", "jpeg", "png"])
+            gender = st.selectbox("性別", ["男", "女", "その他"])
+            age = st.slider("年齢", 10, 80, 25)
+            height = st.number_input("身長(cm)", min_value=100, max_value=250, value=170)
+            weight = st.number_input("体重(kg)", min_value=30, max_value=150, value=60)
+        with col2:
+            body_shape = st.selectbox("体型", ["スリム", "マッチョ", "ガッチリ"])
+            concept = st.text_input("好きなコンセプト (夏系, ギャル系, ヨーロッパ系 etc)")
+            submitted = st.form_submit_button("ジブリ風コーディネート生成")
 
-    for product in example_products:
-        st.markdown(f"- [{product['name']}]({product['url']})")
+    if submitted and uploaded_image:
+        prompt = f"Studio Ghibli inspired anime fashion illustration, soft watercolor style, poetic atmosphere, nature and whimsy background. Fashion outfit for a {age}-year-old {gender} with a {body_shape} body type, height {height}cm and weight {weight}kg. Style concept: {concept}."
 
-    st.success("生成完了！")
+        with st.spinner("AIファッション生成中..."):
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                n=1
+            )
+            image_url = response.data[0].url
+            image_response = requests.get(image_url)
+            ghibli_image = Image.open(BytesIO(image_response.content))
+
+        st.image(ghibli_image, caption="生成されたジブリ風コーディネート", use_column_width=True)
+
+        if st.button("❤️ お気に入りとして登録"):
+            save_favorite({
+                "id": str(uuid.uuid4()),
+                "image_url": image_url,
+                "gender": gender,
+                "age": age,
+                "body_shape": body_shape,
+                "height": height,
+                "weight": weight,
+                "concept": concept,
+                "timestamp": datetime.now().isoformat()
+            })
+            st.success("お気に入りに登録しました！")
+
+# --- Tab 2: Portal View ---
+with tabs[1]:
+    st.subheader("📃 みんなのお気に入りコーディネート")
+    favorites = load_favorites()
+    if favorites:
+        for entry in sorted(favorites, key=lambda x: x["timestamp"], reverse=True):
+            with st.container():
+                cols = st.columns([1, 2])
+                with cols[0]:
+                    st.image(entry["image_url"], use_column_width=True)
+                with cols[1]:
+                    st.markdown(f"**コンセプト**: {entry['concept']}")
+                    st.markdown(f"**性別**: {entry['gender']} | **年齢**: {entry['age']} | **体型**: {entry['body_shape']}")
+                    st.markdown(f"**身長/体重**: {entry['height']}cm / {entry['weight']}kg")
+                    st.markdown(f"[コーディネートに合う商品を見る](https://example.com/search?q=ghibli+{entry['concept'].replace(' ', '+')})")
+    else:
+        st.info("まだお気に入り登録がありません")
