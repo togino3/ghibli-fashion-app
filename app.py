@@ -1,11 +1,11 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 from PIL import Image
 import requests
 from io import BytesIO
 
-# ⚡️ OpenAI API Key
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# OpenAI API Key
+device_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # ページタイトル
 st.set_page_config(page_title="🌟 AIアバターファッションポータル", layout="wide")
@@ -31,18 +31,19 @@ if submitted and uploaded_image:
     prompt = f"Generate a Studio Ghibli style fashion outfit for a {age}-year-old {gender} with a {body_shape} body shape, height {height}cm and weight {weight}kg. The concept is: {concept}. Output should be poetic and artistic."
 
     with st.spinner("生成中... 待ちください"):
-        response = openai.Image.create(
+        response = device_client.images.generate(
+            model="dall-e-3",
             prompt=prompt,
-            n=1,
-            size="512x512"
+            size="1024x1024",
+            n=1
         )
-        image_url = response['data'][0]['url']
+        image_url = response.data[0].url
         image_response = requests.get(image_url)
         ghibli_image = Image.open(BytesIO(image_response.content))
 
     st.image(ghibli_image, caption="生成されたジブリ風ファッション", use_column_width=True)
 
-    # 例) 商品一覧を仮に表示
+    # 商品一覧
     st.markdown("### このファッションに合う商品")
     example_products = [
         {"name": "ストローハット Tシャツ", "url": "https://example.com/product/1"},
@@ -53,4 +54,4 @@ if submitted and uploaded_image:
     for product in example_products:
         st.markdown(f"- [{product['name']}]({product['url']})")
 
-    st.success("アバターコーディネートの生成が終わりました！")
+    st.success("生成完了！")
