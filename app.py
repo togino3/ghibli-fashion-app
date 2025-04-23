@@ -41,22 +41,23 @@ with tabs[0]:
             uploaded_image = st.file_uploader("自分の写真をアップロード", type=["jpg", "jpeg", "png"])
             country = st.text_input("住んでいる国")
             gender = st.selectbox("性別", ["男", "女", "その他"])
-            age = st.slider("年齢", 10, 80, 25)
-            height = st.number_input("身長(cm)", min_value=100, max_value=250, value=170)
-            weight = st.number_input("体重(kg)", min_value=30, max_value=150, value=60)
+            age = st.slider("年齢(1〜100)", min_value=1, max_value=100, value=25)
         with col2:
             body_shape = st.selectbox("体型", ["スリム", "マッチョ", "ガッチリ"])
             color = st.text_input("好きな色")
-            concept = st.text_input("ファッションテーマ (夏系, ギャル系, ヨーロッパ系 etc)")
+            concept = st.text_input("ファッションテーマ (例: 夏系, ストリート, キャンプ etc)")
+            anime_style = st.selectbox(
+                "アニメスタイル",
+                ["日本レトロ", "ディズニー", "アメリカンコミック", "CG"]
+            )
             submitted = st.form_submit_button("アニメ風コーディネート生成")
 
     if submitted and uploaded_image:
         prompt = (
-            f"Create a nostalgic 1990s Japanese anime-style fashion illustration. "
-            f"The character lives in {country}, is a {age}-year-old {gender} with a {body_shape} body type, "
-            f"height {height}cm, weight {weight}kg. Favorite color is {color}. "
-            f"Fashion theme: {concept}. Use soft watercolor tones, retro styling, emotional and dreamy atmosphere, "
-            f"background with natural or urban Japanese setting from the 1990s."
+            f"Please create a fashion coordination image that fits the following customer's preferences. "
+            f"The customer lives in {country}, is a {age}-year-old {gender} with a {body_shape} body type. "
+            f"Favorite color is {color}, and the fashion theme is {concept}. "
+            f"Use an {anime_style} animation style. Include stylish outfit design, full-body fashion, artistic composition, and a harmonious background."
         )
 
         with st.spinner("AIコーディネート生成中..."):
@@ -80,10 +81,9 @@ with tabs[0]:
                 "gender": gender,
                 "age": age,
                 "body_shape": body_shape,
-                "height": height,
-                "weight": weight,
                 "color": color,
                 "concept": concept,
+                "anime_style": anime_style,
                 "timestamp": datetime.now().isoformat()
             }
             save_favorite(new_favorite)
