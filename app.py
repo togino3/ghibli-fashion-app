@@ -17,20 +17,17 @@ st.title("🌟 AIアバターファッションポータル")
 
 # JSON data file for saving favorites
 DATA_FILE = "favorites.json"
-if not os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "w") as f:
-        json.dump([], f)
+if "favorites" not in st.session_state:
+    st.session_state.favorites = []
+
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "r") as f:
+        st.session_state.favorites = json.load(f)
 
 def save_favorite(entry):
-    with open(DATA_FILE, "r") as f:
-        data = json.load(f)
-    data.append(entry)
+    st.session_state.favorites.append(entry)
     with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-def load_favorites():
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
+        json.dump(st.session_state.favorites, f, indent=2)
 
 # Tabs for functionality
 tabs = st.tabs(["生成", "ポータル"])
@@ -52,7 +49,7 @@ with tabs[0]:
             submitted = st.form_submit_button("ジブリ風コーディネート生成")
 
     if submitted and uploaded_image:
-        prompt = f"Studio Ghibli inspired anime fashion illustration, soft watercolor style, poetic atmosphere, nature and whimsy background. Fashion outfit for a {age}-year-old {gender} with a {body_shape} body type, height {height}cm and weight {weight}kg. Style concept: {concept}."
+        prompt = f"Fashion concept: {concept}. Please create a Studio Ghibli inspired anime fashion illustration. Soft watercolor style, magical and whimsical mood, character in a natural setting, rich colors, artistic clothing details, fantasy-like background. Character is a {age}-year-old {gender}, {body_shape} body shape, height {height}cm, weight {weight}kg."
 
         with st.spinner("AIファッション生成中..."):
             response = client.images.generate(
@@ -68,7 +65,7 @@ with tabs[0]:
         st.image(ghibli_image, caption="生成されたジブリ風コーディネート", use_column_width=True)
 
         if st.button("❤️ お気に入りとして登録"):
-            save_favorite({
+            new_favorite = {
                 "id": str(uuid.uuid4()),
                 "image_url": image_url,
                 "gender": gender,
@@ -78,13 +75,14 @@ with tabs[0]:
                 "weight": weight,
                 "concept": concept,
                 "timestamp": datetime.now().isoformat()
-            })
+            }
+            save_favorite(new_favorite)
             st.success("お気に入りに登録しました！")
 
 # --- Tab 2: Portal View ---
 with tabs[1]:
     st.subheader("📃 みんなのお気に入りコーディネート")
-    favorites = load_favorites()
+    favorites = st.session_state.get("favorites", [])
     if favorites:
         for entry in sorted(favorites, key=lambda x: x["timestamp"], reverse=True):
             with st.container():
@@ -95,6 +93,6 @@ with tabs[1]:
                     st.markdown(f"**コンセプト**: {entry['concept']}")
                     st.markdown(f"**性別**: {entry['gender']} | **年齢**: {entry['age']} | **体型**: {entry['body_shape']}")
                     st.markdown(f"**身長/体重**: {entry['height']}cm / {entry['weight']}kg")
-                    st.markdown(f"[コーディネートに合う商品を見る](https://example.com/search?q=ghibli+{entry['concept'].replace(' ', '+')})")
+                    st.markdown(f"[商品を見る](https://example.com/search?q=ghibli+{entry['concept'].replace(' ', '+')})")
     else:
         st.info("まだお気に入り登録がありません")
